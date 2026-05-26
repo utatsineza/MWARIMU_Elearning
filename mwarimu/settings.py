@@ -11,6 +11,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+from datetime import timedelta
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-c#(y8u1gwxpk6%h_!k+bxqg)wk7%usl+wi2z(&@twfbmv^s83('
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -37,6 +42,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'Accounts',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'Module',
+    'Notification',
+    'Payment',
 ]
 
 MIDDLEWARE = [
@@ -73,9 +84,13 @@ WSGI_APPLICATION = 'mwarimu.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    'default' : {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'your_database_name'),
+        'USER': os.getenv('DB_USER', 'your_database_user'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'your_database_password'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -98,6 +113,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTH_USER_MODEL = 'accounts.User'
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -120,3 +136,26 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+REST_FRAMEWORK = {
+   
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+SIMPLE_JWT = { 
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60), 
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1), 
+    "AUTH_HEADER_TYPES": ("Bearer",), 
+}
+
+# SMTP Email Settings (for production)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
