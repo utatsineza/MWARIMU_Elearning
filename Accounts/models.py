@@ -12,6 +12,12 @@ class CustomUserManager(BaseUserManager):
         return user
 
 class User(AbstractBaseUser):
+    ROLE_CHOICES = [
+        ('student',    'Student'),
+        ('instructor', 'Instructor'),
+        ('admin',      'Admin'),
+    ]
+
     user_id    = models.AutoField(primary_key=True)
     fullname   = models.CharField(max_length=255)
     username   = models.CharField(max_length=150, unique=True)

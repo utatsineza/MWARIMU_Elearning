@@ -1,0 +1,7 @@
+from django.urls import path
+from .views import PaymentView
+
+urlpatterns = [
+    path('', PaymentView.as_view(), name='payment'),
+    path('<int:user_id>/', PaymentView.as_view(), name='user-payments'),
+]

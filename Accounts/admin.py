@@ -1,3 +1,28 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from .models import User, OTPVerification, PasswordReset, Settings
 
-# Register your models here.
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    list_display  = ['user_id', 'fullname', 'username', 'email', 'created_at']
+    search_fields = ['username', 'email', 'fullname']
+    ordering      = ['-created_at']
+    fieldsets     = (
+        (None,          {'fields': ('email', 'username', 'password')}),
+        ('Personal',    {'fields': ('fullname',)}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
+    )
+
+@admin.register(OTPVerification)
+class OTPAdmin(admin.ModelAdmin):
+    list_display  = ['user', 'otp_code', 'expires_at', 'verified']
+    search_fields = ['user__email']
+
+@admin.register(PasswordReset)
+class PasswordResetAdmin(admin.ModelAdmin):
+    list_display  = ['user', 'reset_token', 'expires_at', 'used']
+    search_fields = ['user__email']
+
+@admin.register(Settings)
+class SettingsAdmin(admin.ModelAdmin):
+    list_display  = ['user', 'language', 'switch_role', 'payment_method']
