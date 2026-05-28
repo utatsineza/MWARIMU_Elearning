@@ -1,17 +1,11 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
 from .models import User, OTPVerification, PasswordReset, Settings
 
 @admin.register(User)
-class CustomUserAdmin(UserAdmin):
+class CustomUserAdmin(admin.ModelAdmin):
     list_display  = ['user_id', 'fullname', 'username', 'email', 'created_at']
     search_fields = ['username', 'email', 'fullname']
     ordering      = ['-created_at']
-    fieldsets     = (
-        (None,          {'fields': ('email', 'username', 'password')}),
-        ('Personal',    {'fields': ('fullname',)}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
-    )
 
 @admin.register(OTPVerification)
 class OTPAdmin(admin.ModelAdmin):

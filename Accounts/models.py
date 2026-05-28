@@ -10,6 +10,13 @@ class CustomUserManager(BaseUserManager):
         user.set_password(password)
         user.save()
         return user
+    
+    def create_superuser(self, email, username, password=None, **extra_fields):
+        user             = self.create_user(email, username, password, **extra_fields)
+        user.is_staff    = True
+        user.is_superuser = True
+        user.save()
+        return user
 
 class User(AbstractBaseUser):
     ROLE_CHOICES = [
@@ -18,15 +25,28 @@ class User(AbstractBaseUser):
         ('admin',      'Admin'),
     ]
 
-    user_id    = models.AutoField(primary_key=True)
-    fullname   = models.CharField(max_length=255)
-    username   = models.CharField(max_length=150, unique=True)
-    email      = models.EmailField(unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    user_id      = models.AutoField(primary_key=True)
+    fullname     = models.CharField(max_length=255)
+    username     = models.CharField(max_length=150, unique=True)
+    email        = models.EmailField(unique=True)
+    role         = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    is_staff     = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
+    is_active    = models.BooleanField(default=True)
+    created_at   = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
     objects = CustomUserManager()
+
+    def has_perm(self, perm, obj=None):
+        return self.is_superuser
+
+    def has_module_perms(self, app_label):
+        return self.is_superuser
+
+    def __str__(self):
+        return self.email
 
 class OTPVerification(models.Model):
     user       = models.ForeignKey(User, on_delete=models.CASCADE)
