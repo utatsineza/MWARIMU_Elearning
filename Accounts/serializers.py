@@ -42,3 +42,17 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError('Invalid email or password')
         return {'user': user}        
+    
+class SendOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class VerifyOTPSerializer(serializers.Serializer):
+    email    = serializers.EmailField()
+    otp_code = serializers.CharField(max_length=10)
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class ResetPasswordSerializer(serializers.Serializer):
+    reset_token  = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)    
