@@ -18,6 +18,18 @@ from .serializers import (
 )
 
 
+def send_otp_email(user):
+    otp_code   = str(random.randint(100000, 999999))
+    expires_at = timezone.now() + timedelta(minutes=10)
+    OTPVerification.objects.create(user=user, otp_code=otp_code, expires_at=expires_at)
+    send_mail(
+        subject='Verify Your Email - Mwarimu',
+        message=f'Your OTP code is: {otp_code}\nIt expires in 10 minutes.',
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[user.email],
+    )
+
+
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -29,8 +41,11 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
+            user = serializer.save()
+            send_otp_email(user)
+            return Response({
+                'message': 'Registration successful! Please check your email for OTP verification.'
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -45,7 +60,14 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            user    = serializer.validated_data['user']
+            user = serializer.validated_data['user']
+
+            if not user.is_verified:
+                send_otp_email(user)
+                return Response({
+                    'message': 'Please verify your email. A new OTP has been sent to your email.'
+                }, status=status.HTTP_403_FORBIDDEN)
+
             refresh = RefreshToken.for_user(user)
             return Response({
                 'user':          UserSerializer(user).data,
@@ -160,15 +182,7 @@ class SendOTPView(APIView):
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-            otp_code   = str(random.randint(100000, 999999))
-            expires_at = timezone.now() + timedelta(minutes=10)
-            OTPVerification.objects.create(user=user, otp_code=otp_code, expires_at=expires_at)
-            send_mail(
-                subject='Your OTP Code - Mwarimu',
-                message=f'Your OTP code is: {otp_code}\nIt expires in 10 minutes.',
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[email],
-            )
+            send_otp_email(user)
             return Response({'message': 'OTP sent successfully'})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -192,9 +206,11 @@ class VerifyOTPView(APIView):
                     user=user, otp_code=otp_code,
                     verified=False, expires_at__gt=timezone.now()
                 ).latest('expires_at')
-                otp.verified = True
+                otp.verified     = True
                 otp.save()
-                return Response({'message': 'OTP verified successfully'})
+                user.is_verified = True
+                user.save()
+                return Response({'message': 'Email verified successfully! You can now login.'})
             except User.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
             except OTPVerification.DoesNotExist:
