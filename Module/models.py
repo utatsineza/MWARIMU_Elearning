@@ -30,6 +30,6 @@ class Enrollment(models.Model):
 class BrowseHistory(models.Model):
     user           = models.ForeignKey(User, on_delete=models.CASCADE)
     course         = models.ForeignKey(Course, on_delete=models.CASCADE)
-    recently_opened = models.DateTimeField()
-    last_watched   = models.DateTimeField()
-    newly_added    = models.DateTimeField()
+    recently_opened = models.DateTimeField(auto_now = True)
+    last_watched   = models.DateTimeField(null=True, blank=True)
+    newly_added    = models.DateTimeField(auto_now_add=True)
