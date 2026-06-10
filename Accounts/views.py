@@ -207,7 +207,7 @@ class ForgotPasswordView(APIView):
 
     @extend_schema(
         request=ForgotPasswordSerializer,
-        description="Send password reset link to email",
+        description="Send OTP and reset link to email",
         tags=['Password Reset']
     )
     def post(self, request):
@@ -218,43 +218,94 @@ class ForgotPasswordView(APIView):
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Generate OTP
+            otp_code   = str(random.randint(100000, 999999))
+            expires_at = timezone.now() + timedelta(minutes=10)
+            OTPVerification.objects.create(user=user, otp_code=otp_code, expires_at=expires_at)
+
+            # Generate reset token
             reset_token = str(uuid.uuid4())
-            expires_at  = timezone.now() + timedelta(hours=1)
-            PasswordReset.objects.create(user=user, reset_token=reset_token, expires_at=expires_at)
-            reset_link = f'http://localhost:3000/reset-password?token={reset_token}'
+            PasswordReset.objects.create(
+                user=user,
+                reset_token=reset_token,
+                expires_at=timezone.now() + timedelta(hours=1)
+            )
+
+            # Frontend URL — ask your frontend developer for the correct URL
+            frontend_url = 'http://localhost:8081'
+            reset_link   = f'{frontend_url}/reset-password?token={reset_token}'
+
             send_mail(
                 subject='Password Reset - Mwarimu',
-                message=f'Click the link to reset your password:\n{reset_link}\nExpires in 1 hour.',
+                message=f'''Hello {user.fullname},
+
+You requested a password reset. You can use either:
+
+Option 1 - Click this link:
+{reset_link}
+(expires in 1 hour)
+
+Option 2 - Enter this OTP code manually:
+{otp_code}
+(expires in 10 minutes)
+
+If you did not request this, ignore this email.
+''',
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[email],
             )
-            return Response({'message': 'Password reset link sent to your email'})
+            return Response({'message': 'Password reset link and OTP sent to your email'})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
     @extend_schema(
         request=ResetPasswordSerializer,
-        description="Reset password using token",
+        description="Reset password using OTP or token",
         tags=['Password Reset']
     )
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
         if serializer.is_valid():
-            reset_token  = serializer.validated_data['reset_token']
             new_password = serializer.validated_data['new_password']
-            try:
-                reset = PasswordReset.objects.get(
-                    reset_token=reset_token, used=False,
-                    expires_at__gt=timezone.now()
-                )
-                reset.user.set_password(new_password)
-                reset.user.save()
-                reset.used = True
-                reset.save()
-                return Response({'message': 'Password reset successfully'})
-            except PasswordReset.DoesNotExist:
-                return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
+            email        = serializer.validated_data.get('email')
+            otp_code     = serializer.validated_data.get('otp_code')
+            reset_token  = serializer.validated_data.get('reset_token')
+
+            # Option 1 — reset using OTP
+            if email and otp_code:
+                try:
+                    user = User.objects.get(email=email)
+                    otp  = OTPVerification.objects.filter(
+                        user=user, otp_code=otp_code,
+                        verified=False, expires_at__gt=timezone.now()
+                    ).latest('expires_at')
+                    otp.verified = True
+                    otp.save()
+                    user.set_password(new_password)
+                    user.save()
+                    return Response({'message': 'Password reset successfully'})
+                except User.DoesNotExist:
+                    return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+                except OTPVerification.DoesNotExist:
+                    return Response({'error': 'Invalid or expired OTP'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Option 2 — reset using token from link
+            elif reset_token:
+                try:
+                    reset = PasswordReset.objects.get(
+                        reset_token=reset_token, used=False,
+                        expires_at__gt=timezone.now()
+                    )
+                    reset.user.set_password(new_password)
+                    reset.user.save()
+                    reset.used = True
+                    reset.save()
+                    return Response({'message': 'Password reset successfully'})
+                except PasswordReset.DoesNotExist:
+                    return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({'error': 'Provide either email+otp_code or reset_token'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
