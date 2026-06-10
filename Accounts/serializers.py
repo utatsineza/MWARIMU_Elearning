@@ -4,16 +4,17 @@ from django.contrib.auth import authenticate
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model  = User
         fields = ['user_id', 'fullname', 'username', 'email', 'created_at']
 
 class RegisterSerializer(serializers.ModelSerializer):
     password         = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
+    role             = serializers.CharField(default='student', required=False)
 
     class Meta:
         model  = User
-        fields = ['fullname', 'email', 'password', 'confirm_password','role']
+        fields = ['fullname', 'email', 'password', 'confirm_password', 'role']
 
     def validate(self, data):
         if data['password'] != data['confirm_password']:
@@ -22,24 +23,23 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('confirm_password')
-        # use email as username automatically
         validated_data['username'] = validated_data['email']
         user = User.objects.create_user(**validated_data)
         return user
 
 class OTPSerializer(serializers.ModelSerializer):
     class Meta:
-        model = OTPVerification
+        model  = OTPVerification
         fields = ['user', 'otp_code', 'expires_at', 'verified']
 
 class PasswordResetSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PasswordReset
+        model  = PasswordReset
         fields = ['user', 'reset_token', 'expires_at', 'used']
 
 class SettingsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Settings
+        model  = Settings
         fields = ['user', 'language', 'switch_role', 'payment_method']
 
 class LoginSerializer(serializers.Serializer):
@@ -50,8 +50,8 @@ class LoginSerializer(serializers.Serializer):
         user = authenticate(username=data['email'], password=data['password'])
         if not user:
             raise serializers.ValidationError('Invalid email or password')
-        return {'user': user}        
-    
+        return {'user': user}
+
 class SendOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
@@ -63,5 +63,6 @@ class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
 class ResetPasswordSerializer(serializers.Serializer):
-    reset_token  = serializers.CharField()
-    new_password = serializers.CharField(write_only=True)    
+    email        = serializers.EmailField()
+    otp_code     = serializers.CharField(max_length=10)
+    new_password = serializers.CharField(write_only=True)
